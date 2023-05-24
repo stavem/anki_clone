@@ -543,9 +543,7 @@ class Table:
         if rows:
             if len(rows) < self.SELECTION_LIMIT:
                 return rows
-            if current and current in rows:
-                return [current]
-            return rows[0:1]
+            return [current] if current and current in rows else rows[:1]
         return [current if current else 0]
 
     def _intersected_selection(self) -> tuple[list[int], int | None]:

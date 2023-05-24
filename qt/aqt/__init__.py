@@ -152,9 +152,6 @@ class DialogManager:
             def callback() -> None:
                 if self.allClosed():
                     onsuccess()
-                else:
-                    # still waiting for others to close
-                    pass
 
             if getattr(instance, "silentlyClose", False):
                 instance.close()
@@ -233,10 +230,7 @@ def setupLangAndBackend(
     builtins.__dict__["ngettext"] = fn_ngettext
 
     # get lang and normalize into ja/zh-CN form
-    if firstTime:
-        lang = pm.meta["defaultLang"]
-    else:
-        lang = force or pm.meta["defaultLang"]
+    lang = pm.meta["defaultLang"] if firstTime else force or pm.meta["defaultLang"]
     lang = anki.lang.lang_to_disk_lang(lang)
 
     # set active language
@@ -287,9 +281,7 @@ class AnkiApp(QApplication):
         # we accept only one command line argument. if it's missing, send
         # a blank screen to just raise the existing window
         opts, args = parseArgs(self._argv)
-        buf = "raise"
-        if args and args[0]:
-            buf = os.path.abspath(args[0])
+        buf = os.path.abspath(args[0]) if args and args[0] else "raise"
         if self.sendMsg(buf):
             print("Already running; reusing existing instance.")
             return True
@@ -452,11 +444,7 @@ def setupGL(pm: aqt.profiles.ProfileManager) -> None:
 
     qInstallMessageHandler(msgHandler)
 
-    if driver == VideoDriver.OpenGL:
-        # Leaving QT_OPENGL unset appears to sometimes produce different results
-        # to explicitly setting it to 'auto'; the former seems to be more compatible.
-        pass
-    else:
+    if driver != VideoDriver.OpenGL:
         if is_win:
             # on Windows, this appears to be sufficient on Qt5/Qt6.
             # On Qt6, ANGLE is excluded by the enum.
@@ -684,12 +672,11 @@ def _run(argv: Optional[list[str]] = None, exec: bool = True) -> Optional[AnkiAp
     import aqt.main
 
     mw = aqt.main.AnkiQt(app, pm, backend, opts, args)
-    if exec:
-        print("Starting main loop...")
-        app.exec()
-    else:
+    if not exec:
         return app
 
+    print("Starting main loop...")
+    app.exec()
     if PROFILE_CODE:
         write_profile_results()
 

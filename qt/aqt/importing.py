@@ -151,10 +151,6 @@ class ImportDialog(QDialog):
 
             self.showMapping(hook=updateDelim)
 
-        else:
-            # If the operation has been canceled, do not do anything
-            pass
-
     def updateDelimiterButtonText(self) -> None:
         if not self.importer.needDelimiter:
             return

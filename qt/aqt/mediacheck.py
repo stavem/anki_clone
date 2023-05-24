@@ -34,10 +34,10 @@ T = TypeVar("T")
 def chunked_list(l: Iterable[T], n: int) -> Iterable[list[T]]:
     l = iter(l)
     while True:
-        res = list(itertools.islice(l, n))
-        if not res:
+        if res := list(itertools.islice(l, n)):
+            yield res
+        else:
             return
-        yield res
 
 
 def check_media_db(mw: aqt.AnkiQt) -> None:

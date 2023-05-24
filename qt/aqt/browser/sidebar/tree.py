@@ -147,7 +147,7 @@ class SidebarTreeView(QTreeView):
     def op_executed(
         self, changes: OpChanges, handler: object | None, focused: bool
     ) -> None:
-        if changes.browser_sidebar and not handler is self:
+        if changes.browser_sidebar and handler is not self:
             self._refresh_needed = True
         if focused:
             self.refresh_if_needed()
@@ -311,10 +311,7 @@ class SidebarTreeView(QTreeView):
 
     def dropEvent(self, event: QDropEvent) -> None:
         model = self.model()
-        if qtmajor == 5:
-            pos = event.pos()  # type: ignore
-        else:
-            pos = event.position().toPoint()
+        pos = event.pos() if qtmajor == 5 else event.position().toPoint()
         target_item = model.item_for_index(self.indexAt(pos))
         if self.handle_drag_drop(self._selected_items(), target_item):
             event.acceptProposedAction()
@@ -325,10 +322,7 @@ class SidebarTreeView(QTreeView):
             self.tool == SidebarTool.SEARCH
             and event.button() == Qt.MouseButton.LeftButton
         ):
-            if qtmajor == 5:
-                pos = event.pos()  # type: ignore
-            else:
-                pos = event.position().toPoint()
+            pos = event.pos() if qtmajor == 5 else event.position().toPoint()
             if (index := self.currentIndex()) == self.indexAt(pos):
                 self._on_search(index)
 
@@ -514,9 +508,7 @@ class SidebarTreeView(QTreeView):
             self._notetype_tree(root)
         elif stage is SidebarStage.TAGS:
             self._tag_tree(root)
-        elif stage is SidebarStage.ROOT:
-            pass
-        else:
+        elif stage is not SidebarStage.ROOT:
             assert_exhaustive(stage)
 
     def _section_root(
@@ -864,7 +856,7 @@ class SidebarTreeView(QTreeView):
                 )
                 item.add_child(child)
 
-            for c, fld in enumerate(nt["flds"]):
+            for fld in nt["flds"]:
                 child = SidebarItem(
                     fld["name"],
                     field_icon,
@@ -1049,9 +1041,7 @@ class SidebarTreeView(QTreeView):
             ).run_in_background()
 
     def _on_find_and_replace(self, item: SidebarItem) -> None:
-        field = None
-        if item.item_type is SidebarItemType.NOTETYPE_FIELD:
-            field = item.name
+        field = item.name if item.item_type is SidebarItemType.NOTETYPE_FIELD else None
         FindAndReplaceDialog(
             self,
             mw=self.mw,
@@ -1189,10 +1179,10 @@ class SidebarTreeView(QTreeView):
     def save_current_search(self) -> None:
         if (search := self._get_current_search()) is None:
             return
-        name = getOnlyText(tr.browsing_please_give_your_filter_a_name())
-        if not name:
+        if name := getOnlyText(tr.browsing_please_give_your_filter_a_name()):
+            self._save_search(name, search)
+        else:
             return
-        self._save_search(name, search)
 
     def update_saved_search(self, item: SidebarItem) -> None:
         if (search := self._get_current_search()) is None:
