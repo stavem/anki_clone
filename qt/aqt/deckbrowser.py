@@ -175,9 +175,7 @@ class DeckBrowser:
         self.web.eval("window.scrollTo(0, %d, 'instant');" % offset)
 
     def _renderStats(self) -> str:
-        return '<div id="studiedToday"><span>{}</span></div>'.format(
-            self.mw.col.studied_today(),
-        )
+        return f'<div id="studiedToday"><span>{self.mw.col.studied_today()}</span></div>'
 
     def _renderDeckTree(self, top: DeckTreeNode) -> str:
         buf = """
@@ -201,19 +199,11 @@ class DeckBrowser:
         return buf
 
     def _render_deck_node(self, node: DeckTreeNode, ctx: RenderDeckNodeContext) -> str:
-        if node.collapsed:
-            prefix = "+"
-        else:
-            prefix = "-"
-
+        prefix = "+" if node.collapsed else "-"
         def indent() -> str:
             return "&nbsp;" * 6 * (node.level - 1)
 
-        if node.deck_id == ctx.current_deck_id:
-            klass = "deck current"
-        else:
-            klass = "deck"
-
+        klass = "deck current" if node.deck_id == ctx.current_deck_id else "deck"
         buf = (
             "<tr class='%s' id='%d' onclick='if(event.shiftKey) return pycmd(\"select:%d\")'>"
             % (
@@ -230,10 +220,7 @@ class DeckBrowser:
             )
         else:
             collapse = "<span class=collapse></span>"
-        if node.filtered:
-            extraclass = "filtered"
-        else:
-            extraclass = ""
+        extraclass = "filtered" if node.filtered else ""
         buf += """
 
         <td class=decktd colspan=5>%s%s<a class="deck %s"
@@ -310,8 +297,7 @@ class DeckBrowser:
         display_options_for_deck_id(did)
 
     def _collapse(self, did: DeckId) -> None:
-        node = self.mw.col.decks.find_deck_in_tree(self._dueTree, did)
-        if node:
+        if node := self.mw.col.decks.find_deck_in_tree(self._dueTree, did):
             node.collapsed = not node.collapsed
             set_deck_collapsed(
                 parent=self.mw,

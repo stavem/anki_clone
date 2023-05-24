@@ -94,13 +94,14 @@ class TTSPlayer:
 
             rank -= 1
 
-        # if no preferred voices match, we fall back on language
-        # with a rank of -100
-        for avail in avail_voices:
-            if avail.lang == tag.lang:
-                return TTSVoiceMatch(voice=avail, rank=-100)
-
-        return None
+        return next(
+            (
+                TTSVoiceMatch(voice=avail, rank=-100)
+                for avail in avail_voices
+                if avail.lang == tag.lang
+            ),
+            None,
+        )
 
     def temp_file_for_tag_and_voice(self, tag: AVTag, voice: TTSVoice) -> str:
         """Return a hashed filename, to allow for caching generated files.
@@ -117,11 +118,7 @@ class TTSProcessPlayer(SimpleProcessPlayer, TTSPlayer):
         if not isinstance(tag, TTSTag):
             return None
 
-        match = self.voice_for_tag(tag)
-        if match:
-            return match.rank
-        else:
-            return None
+        return match.rank if (match := self.voice_for_tag(tag)) else None
 
 
 # tts-voices filter
@@ -133,8 +130,9 @@ def all_tts_voices() -> list[TTSVoice]:
 
     all_voices: list[TTSVoice] = []
     for p in av_player.players:
-        getter = getattr(p, "validated_voices", getattr(p, "voices", None))
-        if getter:
+        if getter := getattr(
+            p, "validated_voices", getattr(p, "voices", None)
+        ):
             all_voices.extend(getter())
     return all_voices
 
@@ -147,8 +145,10 @@ def on_tts_voices(
     voices = all_tts_voices()
     voices.sort(key=attrgetter("lang", "name"))
 
-    buf = "<div style='font-size: 14px; text-align: left;'>TTS voices available:<br>"
-    buf += "<br>".join(map(str, voices))
+    buf = (
+        "<div style='font-size: 14px; text-align: left;'>TTS voices available:<br>"
+        + "<br>".join(map(str, voices))
+    )
     if any(v.unavailable() for v in voices):
         buf += "<div>One or more voices are unavailable."
         buf += " Installing a Windows language pack may help.</div>"
@@ -200,8 +200,7 @@ class MacTTSPlayer(TTSProcessPlayer):
 
         voices = []
         for line in cmd.stdout.splitlines():
-            voice = self._parse_voice_line(line)
-            if voice:
+            if voice := self._parse_voice_line(line):
                 voices.append(voice)
         return voices
 
@@ -604,7 +603,7 @@ if is_win:
 
         def _on_done(self, ret: Future, cb: OnDoneCallback) -> None:
             if exception := ret.exception():
-                print(str(exception))
+                print(exception)
                 tooltip(tr.errors_windows_tts_runtime_error())
                 cb()
                 return

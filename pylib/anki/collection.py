@@ -201,10 +201,7 @@ class Collection(DeprecatedNamesMixin):
         if ver == 1:
             self.sched = V1Scheduler(self)
         elif ver == 2:
-            if self.v3_scheduler():
-                self.sched = V3Scheduler(self)
-            else:
-                self.sched = V2Scheduler(self)
+            self.sched = V3Scheduler(self) if self.v3_scheduler() else V2Scheduler(self)
 
     def upgrade_to_v2_scheduler(self) -> None:
         self._backend.upgrade_scheduler()
@@ -338,10 +335,7 @@ class Collection(DeprecatedNamesMixin):
         return self.db.scalar("select scm > ls from col")
 
     def usn(self) -> int:
-        if self.server:
-            return self.db.scalar("select usn from col")
-        else:
-            return -1
+        return self.db.scalar("select usn from col") if self.server else -1
 
     def legacy_checkpoint_pending(self) -> bool:
         return (
@@ -840,13 +834,11 @@ class Collection(DeprecatedNamesMixin):
         Used by the Browse screen to avoid adding extra brackets when joining.
         If you're building a search query yourself, you probably don't need this.
         """
-        search_string = self._backend.join_search_nodes(
+        return self._backend.join_search_nodes(
             joiner=self._pb_search_separator(operator),
             existing_node=existing_node,
             additional_node=additional_node,
         )
-
-        return search_string
 
     def replace_in_search_node(
         self, existing_node: SearchNode, replacement_node: SearchNode
@@ -873,10 +865,14 @@ class Collection(DeprecatedNamesMixin):
         return self._backend.all_browser_columns()
 
     def get_browser_column(self, key: str) -> BrowserColumns.Column | None:
-        for column in self._backend.all_browser_columns():
-            if column.key == key:
-                return column
-        return None
+        return next(
+            (
+                column
+                for column in self._backend.all_browser_columns()
+                if column.key == key
+            ),
+            None,
+        )
 
     def browser_row_for_id(
         self, id_: int
@@ -1131,10 +1127,8 @@ class Collection(DeprecatedNamesMixin):
         self._last_checkpoint_at = time.time()
         if name:
             self._undo = LegacyCheckpoint(name=name)
-        else:
-            # saving disables old checkpoint, but not review undo
-            if not isinstance(self._undo, _ReviewsUndo):
-                self.clear_python_undo()
+        elif not isinstance(self._undo, _ReviewsUndo):
+            self.clear_python_undo()
 
     def _undo_review(self) -> LegacyReviewUndo:
         "Undo a v1/v2 review."

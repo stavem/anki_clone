@@ -267,14 +267,10 @@ class Reviewer:
         self.card.start_timer()
 
     def get_scheduling_states(self) -> SchedulingStates | None:
-        if v3 := self._v3:
-            return v3.states
-        return None
+        return v3.states if (v3 := self._v3) else None
 
     def get_scheduling_context(self) -> SchedulingContext | None:
-        if v3 := self._v3:
-            return v3.context
-        return None
+        return v3.context if (v3 := self._v3) else None
 
     def set_scheduling_states(self, key: str, states: SchedulingStates) -> None:
         if key != self._state_mutation_key:
@@ -363,11 +359,10 @@ class Reviewer:
         if c.autoplay():
             self.web.setPlaybackRequiresGesture(False)
             sounds = c.question_av_tags()
-            gui_hooks.reviewer_will_play_question_sounds(c, sounds)
         else:
             self.web.setPlaybackRequiresGesture(True)
             sounds = []
-            gui_hooks.reviewer_will_play_question_sounds(c, sounds)
+        gui_hooks.reviewer_will_play_question_sounds(c, sounds)
         gui_hooks.av_player_will_play_tags(sounds, self.state, self)
         av_player.play_tags(sounds)
         # render & update bottom
@@ -412,12 +407,8 @@ class Reviewer:
         c = self.card
         a = c.answer()
         # play audio?
-        if c.autoplay():
-            sounds = c.answer_av_tags()
-            gui_hooks.reviewer_will_play_answer_sounds(c, sounds)
-        else:
-            sounds = []
-            gui_hooks.reviewer_will_play_answer_sounds(c, sounds)
+        sounds = c.answer_av_tags() if c.autoplay() else []
+        gui_hooks.reviewer_will_play_answer_sounds(c, sounds)
         gui_hooks.av_player_will_play_tags(sounds, self.state, self)
         av_player.play_tags(sounds)
         a = self._mungeQA(a)
@@ -583,7 +574,7 @@ class Reviewer:
         m = re.search(self.typeAnsPat, buf)
         if not m:
             return buf
-        fld = m.group(1)
+        fld = m[1]
         # if it's a cloze, extract data
         if fld.startswith("cloze:"):
             # get field and cloze position
@@ -600,15 +591,15 @@ class Reviewer:
                 self.typeSize = f["size"]
                 break
         if not self.typeCorrect:
-            if self.typeCorrect is None:
-                if clozeIdx:
-                    warn = tr.studying_please_run_toolsempty_cards()
-                else:
-                    warn = tr.studying_type_answer_unknown_field(val=fld)
-                return re.sub(self.typeAnsPat, warn, buf)
-            else:
+            if self.typeCorrect is not None:
                 # empty field, remove type answer pattern
                 return re.sub(self.typeAnsPat, "", buf)
+            warn = (
+                tr.studying_please_run_toolsempty_cards()
+                if clozeIdx
+                else tr.studying_type_answer_unknown_field(val=fld)
+            )
+            return re.sub(self.typeAnsPat, warn, buf)
         return re.sub(
             self.typeAnsPat,
             f"""
@@ -699,14 +690,8 @@ time = %(time)d;
             self._remaining(),
         )
         # wrap it in a table so it has the same top margin as the ease buttons
-        middle = (
-            "<table cellpadding=0><tr><td class=stat2 align=center>%s</td></tr></table>"
-            % middle
-        )
-        if self.card.should_show_timer():
-            maxTime = self.card.time_limit() / 1000
-        else:
-            maxTime = 0
+        middle = f"<table cellpadding=0><tr><td class=stat2 align=center>{middle}</td></tr></table>"
+        maxTime = self.card.time_limit() / 1000 if self.card.should_show_timer() else 0
         self.bottom.web.eval("showQuestion(%s,%d);" % (json.dumps(middle), maxTime))
 
     def _showEaseButtons(self) -> None:
@@ -742,10 +727,7 @@ time = %(time)d;
 """
 
     def _defaultEase(self) -> Literal[2, 3]:
-        if self.mw.col.sched.answerButtons(self.card) == 4:
-            return 3
-        else:
-            return 2
+        return 3 if self.mw.col.sched.answerButtons(self.card) == 4 else 2
 
     def _answerButtonList(self) -> tuple[tuple[int, str], ...]:
         button_count = self.mw.col.sched.answerButtons(self.card)
@@ -782,10 +764,7 @@ time = %(time)d;
             labels = None
 
         def but(i: int, label: str) -> str:
-            if i == default:
-                extra = """id="defease" """
-            else:
-                extra = ""
+            extra = """id="defease" """ if i == default else ""
             due = self._buttonTime(i, v3_labels=labels)
             return """
 <td align=center><button %s title="%s" data-ease="%s" onclick='pycmd("ease%d");'>\
@@ -805,14 +784,14 @@ time = %(time)d;
         return buf
 
     def _buttonTime(self, i: int, v3_labels: Sequence[str] | None = None) -> str:
-        if self.mw.col.conf["estTimes"]:
-            if v3_labels:
-                txt = v3_labels[i - 1]
-            else:
-                txt = self.mw.col.sched.nextIvlStr(self.card, i, True) or ""
-            return f"""<span class="nobold">{txt}</span>"""
-        else:
+        if not self.mw.col.conf["estTimes"]:
             return ""
+        txt = (
+            v3_labels[i - 1]
+            if v3_labels
+            else self.mw.col.sched.nextIvlStr(self.card, i, True) or ""
+        )
+        return f"""<span class="nobold">{txt}</span>"""
 
     # Leeches
     ##########################################################################
@@ -830,8 +809,7 @@ time = %(time)d;
 
     def check_timebox(self) -> bool:
         "True if answering should be aborted."
-        elapsed = self.mw.col.timeboxReached()
-        if elapsed:
+        if elapsed := self.mw.col.timeboxReached():
             assert not isinstance(elapsed, bool)
             part1 = tr.studying_card_studied_in(count=elapsed[1])
             mins = int(round(elapsed[0] / 60))
@@ -851,7 +829,7 @@ time = %(time)d;
     # note the shortcuts listed here also need to be defined above
     def _contextMenu(self) -> list[Any]:
         currentFlag = self.card and self.card.user_flag()
-        opts = [
+        return [
             [
                 tr.studying_flag_card(),
                 [
@@ -878,7 +856,11 @@ time = %(time)d;
             [tr.actions_suspend_card(), "@", self.suspend_current_card],
             [tr.actions_options(), "O", self.onOptions],
             [tr.actions_card_info(), "I", self.on_card_info],
-            [tr.actions_previous_card_info(), "Ctrl+Alt+I", self.on_previous_card_info],
+            [
+                tr.actions_previous_card_info(),
+                "Ctrl+Alt+I",
+                self.on_previous_card_info,
+            ],
             None,
             [tr.studying_mark_note(), "*", self.toggle_mark_on_current_note],
             [tr.studying_bury_note(), "=", self.bury_current_note],
@@ -897,7 +879,6 @@ time = %(time)d;
             [tr.studying_record_own_voice(), "Shift+V", self.onRecordVoice],
             [tr.studying_replay_own_voice(), "V", self.onReplayRecorded],
         ]
-        return opts
 
     def showContextMenu(self) -> None:
         opts = self._contextMenu()
@@ -942,11 +923,7 @@ time = %(time)d;
 
     def set_flag_on_current_card(self, desired_flag: int) -> None:
         # need to toggle off?
-        if self.card.user_flag() == desired_flag:
-            flag = 0
-        else:
-            flag = desired_flag
-
+        flag = 0 if self.card.user_flag() == desired_flag else desired_flag
         set_card_flag(parent=self.mw, card_ids=[self.card.id], flag=flag).success(
             lambda _: None
         ).run_in_background()

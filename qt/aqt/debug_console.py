@@ -132,13 +132,13 @@ class DebugConsole(QDialog):
 
     def _save_script(self) -> None:
         if not (path := self._current_script_path()):
-            new_file = QFileDialog.getSaveFileName(
+            if new_file := QFileDialog.getSaveFileName(
                 self, directory=str(self._dir), filter="Python file (*.py)"
-            )[0]
-            if not new_file:
-                return
-            path = Path(new_file)
+            )[0]:
+                path = Path(new_file)
 
+            else:
+                return
         path.write_text(self._text.toPlainText(), encoding="utf8")
 
         item = self._path_to_item(path)
@@ -293,12 +293,10 @@ class DebugConsole(QDialog):
         except:
             self._output += traceback.format_exc()
         self._captureOutput(False)
-        buf = ""
-        for c, line in enumerate(text.strip().split("\n")):
-            if c == 0:
-                buf += f">>> {line}\n"
-            else:
-                buf += f"... {line}\n"
+        buf = "".join(
+            f">>> {line}\n" if c == 0 else f"... {line}\n"
+            for c, line in enumerate(text.strip().split("\n"))
+        )
         try:
             to_append = buf + (self._output or "<no output>")
             to_append = gui_hooks.debug_console_did_evaluate_python(
